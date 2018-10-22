@@ -4,6 +4,7 @@ import os
 import subprocess as sp
 import logging
 FFMPEG_BIN = '/usr/local/bin/ffmpeg'
+FFPROBE_BIN = '/usr/local/bin/ffprobe'
 
 app = Flask(__name__)
 
@@ -14,9 +15,14 @@ def home():
 @app.route('/api/list', methods=['GET'])
 def list():
   class Video:
-    def __init__(self, title, url):
-      self.title = title
-      self.url = url
+    def __init__(self, title, url, size, duration, bit_rate, codec_name, esolution_ratio):
+      self.title = title #标题
+      self.url = url #视频url
+      self.size = size #大小
+      self.duration = duration #视频时长
+      self.bit_rate = bit_rate #比特率
+      self.codec_name = codec_name #编码
+      self.esolution_ratio = esolution_ratio #分辨率
 
   list = []
   pd = Path('static/video')
@@ -26,7 +32,24 @@ def list():
       for child_file in pf.iterdir():
         if not child_file.is_dir():
           if child_file.name.find(child_dir.name) != -1:
-            list.append(Video(child_file.name, os.path.join('static/video', child_dir.name, child_file.name)))
+            ffprobe_command = [FFPROBE_BIN,
+              '-v', 'quiet',
+              '-print_format', 'json',
+              '-show_format',
+              '-show_streams',
+              '-i', os.path.join('static/video',child_dir.name, child_file.name)
+            ]
+            p = sp.run(ffprobe_command, capture_output=True)
+            videoInfoJson = p.stdout.decode('ascii')
+            videoInfo = json.loads(videoInfoJson)
+            list.append(Video(child_file.name,
+              os.path.join('static/video',child_dir.name, child_file.name),
+              videoInfo['format']['size'],
+              videoInfo['format']['duration'],
+              videoInfo['streams'][0]['bit_rate'],
+              videoInfo['streams'][0]['codec_name'],
+              str(videoInfo['streams'][0]['coded_width']) + '×' + str(videoInfo['streams'][0]['coded_height'])
+            ))
             break
   return json.dumps(list, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
