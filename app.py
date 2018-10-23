@@ -12,6 +12,16 @@ app = Flask(__name__)
 def home():
   return render_template('index.html')
 
+class Video:
+  def __init__(self, name, url, size, duration, bit_rate, codec_name, resolution_ratio):
+    self.name = name #标题
+    self.url = url #视频url
+    self.size = size #视频大小
+    self.duration = duration #视频时长
+    self.bit_rate = bit_rate #比特率
+    self.codec_name = codec_name #编码
+    self.resolution_ratio = resolution_ratio #分辨率
+
 """
 @api {get} /api/list 获取视频列表
 @apiName GetVideoList
@@ -28,16 +38,6 @@ def home():
 """
 @app.route('/api/list', methods=['GET'])
 def list():
-  class Video:
-    def __init__(self, name, url, size, duration, bit_rate, codec_name, resolution_ratio):
-      self.name = name #标题
-      self.url = url #视频url
-      self.size = size #视频大小
-      self.duration = duration #视频时长
-      self.bit_rate = bit_rate #比特率
-      self.codec_name = codec_name #编码
-      self.resolution_ratio = resolution_ratio #分辨率
-
   list = []
   pd = Path('static/video')
   for child_dir in pd.iterdir():
@@ -51,13 +51,13 @@ def list():
               '-print_format', 'json',
               '-show_format',
               '-show_streams',
-              '-i', os.path.join('static/video',child_dir.name, child_file.name)
+              '-i', os.path.join('static/video', child_dir.name, child_file.name)
             ]
             p = sp.run(ffprobe_command, capture_output=True)
             videoInfoJson = p.stdout.decode('ascii')
             videoInfo = json.loads(videoInfoJson)
             list.append(Video(child_file.name,
-              os.path.join('static/video',child_dir.name, child_file.name),
+              os.path.join('static/video', child_dir.name, child_file.name),
               videoInfo['format']['size'],
               videoInfo['format']['duration'],
               videoInfo['streams'][0]['bit_rate'],
@@ -151,5 +151,23 @@ def ad():
   os.remove(os.path.join(dir_name, 'start.mp4'))
   os.remove(os.path.join(dir_name, 'end.mp4'))
   os.remove(os.path.join(dir_name, 'merged_end.mp4'))
-
-  return os.path.join(dir_name, 'result.mp4')
+  #取最终预览视频信息
+  ffprobe_command = [FFPROBE_BIN,
+    '-v', 'quiet',
+    '-print_format', 'json',
+    '-show_format',
+    '-show_streams',
+    '-i', os.path.join(dir_name, 'result.mp4')
+  ]
+  pp = sp.run(ffprobe_command, capture_output=True)
+  videoInfoJson = pp.stdout.decode('ascii')
+  videoInfo = json.loads(videoInfoJson)
+  videoClass = Video('result.mp4',
+    os.path.join(dir_name, 'result.mp4'),
+    videoInfo['format']['size'],
+    videoInfo['format']['duration'],
+    videoInfo['streams'][0]['bit_rate'],
+    videoInfo['streams'][0]['codec_name'],
+    str(videoInfo['streams'][0]['coded_width']) + '×' + str(videoInfo['streams'][0]['coded_height'])
+  )
+  return json.dumps(videoClass, default=lambda o: o.__dict__, sort_keys=True, indent=4)
