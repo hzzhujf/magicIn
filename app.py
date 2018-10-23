@@ -12,17 +12,31 @@ app = Flask(__name__)
 def home():
   return render_template('index.html')
 
+"""
+@api {get} /api/list 获取视频列表
+@apiName GetVideoList
+@apiGroup Video
+
+@apiSuccess {Object[]} body http body
+@apiSuccess (Object) {String} name 视频标题.
+@apiSuccess (Object) {String} url 视频url.
+@apiSuccess (Object) {Number} size 视频大小.
+@apiSuccess (Object) {Number} duration 视频时长.
+@apiSuccess (Object) {Number} bit_rate 比特率.
+@apiSuccess (Object) {String} codec_name 编码.
+@apiSuccess (Object) {String} resolution_ratio 分辨率.
+"""
 @app.route('/api/list', methods=['GET'])
 def list():
   class Video:
-    def __init__(self, title, url, size, duration, bit_rate, codec_name, esolution_ratio):
-      self.title = title #标题
+    def __init__(self, name, url, size, duration, bit_rate, codec_name, resolution_ratio):
+      self.name = name #标题
       self.url = url #视频url
-      self.size = size #大小
+      self.size = size #视频大小
       self.duration = duration #视频时长
       self.bit_rate = bit_rate #比特率
       self.codec_name = codec_name #编码
-      self.esolution_ratio = esolution_ratio #分辨率
+      self.resolution_ratio = resolution_ratio #分辨率
 
   list = []
   pd = Path('static/video')
@@ -53,6 +67,23 @@ def list():
             break
   return json.dumps(list, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
+"""
+@api {post} /api/ad 上传特效浮层
+@apiName PostAdLayer
+@apiGroup Video
+
+@apiParam {String} video 视频标题.
+@apiParam {String} ss 合成时间点，格式为 00:00:00.000
+@apiParam {File} ad_layer 特效浮层的序列帧文件
+
+@apiSuccess {String} name 视频标题.
+@apiSuccess {String} url 视频url.
+@apiSuccess {Number} size 视频大小.
+@apiSuccess {Number} duration 视频时长.
+@apiSuccess {Number} bit_rate 比特率.
+@apiSuccess {String} codec_name 编码.
+@apiSuccess {String} resolution_ratio 分辨率.
+"""
 @app.route('/api/ad', methods=['POST'])
 def ad():
   file_name = request.form['video']
