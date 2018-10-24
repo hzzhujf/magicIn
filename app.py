@@ -3,8 +3,9 @@ from pathlib import Path
 import os
 import subprocess as sp
 import logging
-FFMPEG_BIN = '/usr/local/bin/ffmpeg'
-FFPROBE_BIN = '/usr/local/bin/ffprobe'
+import config.config_base as config
+FFMPEG_BIN = config.configs['ffmpeg_bin']
+FFPROBE_BIN = config.configs['ffprobe_bin']
 
 app = Flask(__name__)
 
