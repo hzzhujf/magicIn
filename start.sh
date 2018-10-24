@@ -1,1 +1,1 @@
-FLASK_APP=app.py flask run --port=5000
+FLASK_APP=app.py nohup flask run --port=5000 > out.log 2>&1 &
