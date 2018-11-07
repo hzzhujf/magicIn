@@ -63,7 +63,7 @@ def list():
               '-i', os.path.join('static/video', child_dir.name, child_file.name)
             ]
             p = sp.run(ffprobe_command, capture_output=True)
-            videoInfoJson = p.stdout.decode('ascii')
+            videoInfoJson = p.stdout.decode('utf8', 'ignore')
             videoInfo = json.loads(videoInfoJson)
             list.append(Video(child_file.name,
               os.path.join('static/video', child_dir.name, child_file.name),
@@ -71,7 +71,7 @@ def list():
               videoInfo['format']['duration'],
               videoInfo['streams'][0]['bit_rate'],
               videoInfo['streams'][0]['codec_name'],
-              str(videoInfo['streams'][0]['coded_width']) + '×' + str(videoInfo['streams'][0]['coded_height']),
+              str(videoInfo['streams'][0]['coded_width']) + '/' + str(videoInfo['streams'][0]['coded_height']),
               videoInfo['streams'][0]['r_frame_rate']
             ))
             break
@@ -84,7 +84,8 @@ def list():
 
 @apiParam {String} video 视频标题.
 @apiParam {String} ss 合成时间点，格式为 00:00:00.000
-@apiParam {File} ad_layer 特效浮层的序列帧文件
+@apiParam {String} layer 特效浮层视频url
+@apiParam {String} mask 蒙版浮层视频url
 
 @apiSuccess {String} name 视频标题.
 @apiSuccess {String} url 视频url.
@@ -97,11 +98,14 @@ def list():
 @app.route('/api/ad', methods=['POST'])
 def ad():
   file_name = request.form['video']
-  dir_name = os.path.join('static/video', file_name.split('.')[0])
   seek_time_str = request.form['ss']
-  layerFile = request.files.get('layer')
-  layerFile.save(os.path.join(dir_name, layerFile.filename))
-  maskFile = request.files.get('mask')
+  layer_file = request.form['layer']
+  mask_file = None
+  try:
+    mask_file = request.form['mask']
+  except Exception as err:
+    print('mask is empty')
+  dir_name = os.path.join('static/video', file_name.split('.')[0])
 
   if seek_time_str != '00:00:00.000': #中间帧插入
     #分割视频
@@ -115,7 +119,7 @@ def ad():
       os.path.join(dir_name, 'start.mp4')]
     dsp = sp.run(divide_start_command, capture_output=True)
     if dsp.returncode != 0:
-      logging.error(dsp.stderr.decode('ascii'))
+      logging.error(dsp.stderr.decode('utf8', 'ignore'))
       return 'error'
     #ffmpeg -y -accurate_seek -ss 00:00:00.480 -i no_cover.mp4 -c:v h264 -c:a aac end.mp4
     divide_end_command = [FFMPEG_BIN,
@@ -127,26 +131,25 @@ def ad():
       os.path.join(dir_name, 'end.mp4')]
     dep = sp.run(divide_end_command, capture_output=True)
     if dep.returncode != 0:
-      logging.error(dep.stderr.decode('ascii'))
+      logging.error(dep.stderr.decode('utf8', 'ignore'))
       return 'error'
     #合成广告视频
-    if maskFile == None:
+    if mask_file == None:
       #ffmpeg -y -i end.mp4 -i ad_layer.mov -filter_complex 'overlay' merged_end.mp4
       merge_ad_command = [FFMPEG_BIN,
         '-y',
         '-i', os.path.join(dir_name, 'end.mp4'),
-        '-i', os.path.join(dir_name, layerFile.filename),
+        '-i', layer_file,
         '-filter_complex',
         'overlay',
         os.path.join(dir_name, 'merged_end.mp4')
       ]
     else:
-      maskFile.save(os.path.join(dir_name, maskFile.filename))
       #ffmpeg -i layer.mp4 -i mask.mp4 -i source.mp4 -filter_complex "[0][1]alphamerge[ia];[2][ia]overlay" out.mp4
       merge_ad_command = [FFMPEG_BIN,
         '-y',
-        '-i', os.path.join(dir_name, layerFile.filename),
-        '-i', os.path.join(dir_name, maskFile.filename),
+        '-i', layer_file,
+        '-i', layer_file,
         '-i', os.path.join(dir_name, 'end.mp4'),
         '-filter_complex', '[0:0][1:0]alphamerge[lm];[2:0][lm]overlay[lma]',
         '-map', '[lma]', '-c:v', 'h264',
@@ -156,7 +159,7 @@ def ad():
 
     mp = sp.run(merge_ad_command, capture_output=True)
     if mp.returncode != 0:
-      logging.error(mp.stderr.decode('ascii'))
+      logging.error(mp.stderr.decode('utf8', 'ignore'))
       return 'error'
     
     #合并最终预览视频
@@ -174,7 +177,7 @@ def ad():
     ]
     mrp = sp.run(merge_result_command, capture_output=True)
     if mrp.returncode != 0:
-      logging.error(mrp.stderr.decode('ascii'))
+      logging.error(mrp.stderr.decode('utf8', 'ignore'))
       return 'error'
     #删除中间状态的临时视频
     os.remove(os.path.join(dir_name, 'start.mp4'))
@@ -182,23 +185,22 @@ def ad():
     os.remove(os.path.join(dir_name, 'merged_end.mp4'))
   else: #起始帧插入
     #合成广告视频
-    if maskFile == None:
+    if mask_file == None:
       #ffmpeg -y -i end.mp4 -i ad_layer.mov -filter_complex 'overlay' merged_end.mp4
       merge_ad_command = [FFMPEG_BIN,
         '-y',
         '-i', os.path.join(dir_name, file_name),
-        '-i', os.path.join(dir_name, layerFile.filename),
+        '-i', layer_file,
         '-filter_complex',
         'overlay',
         os.path.join(dir_name, 'result.mp4')
       ]
     else:
-      maskFile.save(os.path.join(dir_name, maskFile.filename))
       #ffmpeg -i layer.mp4 -i mask.mp4 -i source.mp4 -filter_complex "[0][1]alphamerge[ia];[2][ia]overlay" out.mp4
       merge_ad_command = [FFMPEG_BIN,
         '-y',
-        '-i', os.path.join(dir_name, layerFile.filename),
-        '-i', os.path.join(dir_name, maskFile.filename),
+        '-i', layer_file,
+        '-i', mask_file,
         '-i', os.path.join(dir_name, file_name),
         '-filter_complex', '[0:0][1:0]alphamerge[lm];[2:0][lm]overlay[lma]',
         '-map', '[lma]', '-c:v', 'h264',
@@ -207,7 +209,7 @@ def ad():
       
     mp = sp.run(merge_ad_command, capture_output=True)
     if mp.returncode != 0:
-      logging.error(mp.stderr.decode('ascii'))
+      logging.error(mp.stderr.decode('utf8', 'ignore'))
       return 'error'
   
   #取最终预览视频信息
@@ -219,7 +221,7 @@ def ad():
     '-i', os.path.join(dir_name, 'result.mp4')
   ]
   pp = sp.run(ffprobe_command, capture_output=True)
-  videoInfoJson = pp.stdout.decode('ascii')
+  videoInfoJson = pp.stdout.decode('utf8', 'ignore')
   videoInfo = json.loads(videoInfoJson)
   videoClass = Video('result.mp4',
     os.path.join(dir_name, 'result.mp4'),
@@ -227,7 +229,7 @@ def ad():
     videoInfo['format']['duration'],
     videoInfo['streams'][0]['bit_rate'],
     videoInfo['streams'][0]['codec_name'],
-    str(videoInfo['streams'][0]['coded_width']) + '×' + str(videoInfo['streams'][0]['coded_height']),
+    str(videoInfo['streams'][0]['coded_width']) + '/' + str(videoInfo['streams'][0]['coded_height']),
     videoInfo['streams'][0]['r_frame_rate']
   )
   return json.dumps(videoClass, default=lambda o: o.__dict__, sort_keys=True, indent=4)
@@ -237,15 +239,15 @@ def ad():
 @apiName GefFrame
 @apiGroup Video
 
-@apiParam {File} video 视频文件
+@apiParam {String} video 视频文件url
 
 @apiSuccess {String} first_frame 第一帧.
 @apiSuccess {String} last_frame 最后一帧.
 """
 @app.route('/api/frame', methods=['POST'])
 def frame():
-  videoFile = request.files.get('video')
-  videoFile.save(os.path.join('static', videoFile.filename))
+  # videoFile = request.files.get('video')
+  video_file = request.form['video']
 
   #取视频信息
   ffprobe_command = [FFPROBE_BIN,
@@ -253,10 +255,10 @@ def frame():
     '-print_format', 'json',
     '-show_format',
     '-show_streams',
-    '-i', os.path.join('static', videoFile.filename)
+    '-i', video_file
   ]
   pp = sp.run(ffprobe_command, capture_output=True)
-  videoInfoJson = pp.stdout.decode('ascii', 'ignore')
+  videoInfoJson = pp.stdout.decode('utf8', 'ignore')
   videoInfo = json.loads(videoInfoJson)
   nb_frames = int(videoInfo['streams'][0]['nb_frames'])
   last_frame_index = nb_frames - 1
@@ -266,14 +268,14 @@ def frame():
   #ffmpeg -y -i video.mp4 -f image2 -vframes 1 first.png
   get_first_frame_command = [FFMPEG_BIN,
     '-y',
-    '-i', os.path.join('static', videoFile.filename),
+    '-i', video_file,
     '-f', 'image2',
     '-vframes', '1',
     first_frame_url
   ]
   gffp = sp.run(get_first_frame_command, capture_output=True)
   if gffp.returncode != 0:
-    logging.error(gffp.stderr.decode('ascii'))
+    logging.error(gffp.stderr.decode('utf8', 'ignore'))
     return 'error'
   #取最后一帧
   now = int(round(time.time() * 1000))
@@ -281,7 +283,7 @@ def frame():
   #ffmpeg -y -i video.mp4 -vf "select='eq(n,LAST_FRAME_INDEX)'" -f image2 -vframes 1 first.png
   get_last_frame_command = [FFMPEG_BIN,
     '-y',
-    '-i', os.path.join('static', videoFile.filename),
+    '-i', video_file,
     '-vf', "select='eq(n,%d)'" % last_frame_index,
     '-f', 'image2',
     '-vframes', '1',
@@ -289,11 +291,55 @@ def frame():
   ]
   glfp = sp.run(get_last_frame_command, capture_output=True)
   if glfp.returncode != 0:
-    logging.error(glfp.stderr.decode('ascii'))
+    logging.error(glfp.stderr.decode('utf8', 'ignore'))
     return 'error'
 
   #删除临时文件
-  os.remove(os.path.join('static', videoFile.filename))
+  os.remove(video_file)
   
   frameClass = Frame(first_frame_url, last_frame_url)
   return json.dumps(frameClass, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+"""
+@api {post} /api/upload 上传视频
+@apiName Upload
+@apiGroup Video
+
+@apiParam {File} video 视频文件
+
+@apiSuccess {String} name 视频标题.
+@apiSuccess {String} url 视频url.
+@apiSuccess {Number} size 视频大小.
+@apiSuccess {Number} duration 视频时长.
+@apiSuccess {Number} bit_rate 比特率.
+@apiSuccess {String} codec_name 编码.
+@apiSuccess {String} resolution_ratio 分辨率.
+"""
+@app.route('/api/upload', methods=['POST'])
+def upload():
+  videoFile = request.files.get('video')
+  now = str(round(time.time() * 1000))
+  filename = '%s-%s' % (now, videoFile.filename)
+  videoFile.save(os.path.join('static', 'tmp', filename))
+  
+  #取最终预览视频信息
+  ffprobe_command = [FFPROBE_BIN,
+    '-v', 'quiet',
+    '-print_format', 'json',
+    '-show_format',
+    '-show_streams',
+    '-i', os.path.join('static', 'tmp', filename)
+  ]
+  pp = sp.run(ffprobe_command, capture_output=True)
+  videoInfoJson = pp.stdout.decode('utf8', 'ignore')
+  videoInfo = json.loads(videoInfoJson)
+  videoClass = Video(now,
+    os.path.join('static', 'tmp', filename),
+    videoInfo['format']['size'],
+    videoInfo['format']['duration'],
+    videoInfo['streams'][0]['bit_rate'],
+    videoInfo['streams'][0]['codec_name'],
+    str(videoInfo['streams'][0]['coded_width']) + '/' + str(videoInfo['streams'][0]['coded_height']),
+    videoInfo['streams'][0]['r_frame_rate']
+  )
+  return json.dumps(videoClass, default=lambda o: o.__dict__, sort_keys=True, indent=4)
