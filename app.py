@@ -293,9 +293,6 @@ def frame():
   if glfp.returncode != 0:
     logging.error(glfp.stderr.decode('utf8', 'ignore'))
     return 'error'
-
-  #删除临时文件
-  os.remove(video_file)
   
   frameClass = Frame(first_frame_url, last_frame_url)
   return json.dumps(frameClass, default=lambda o: o.__dict__, sort_keys=True, indent=4)
