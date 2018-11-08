@@ -5,10 +5,12 @@ import subprocess as sp
 import logging
 import config.config_base as config
 import time
+from flask_cors import CORS
 FFMPEG_BIN = config.configs['ffmpeg_bin']
 FFPROBE_BIN = config.configs['ffprobe_bin']
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/', methods=['GET'])
 def home():
