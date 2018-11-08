@@ -100,7 +100,7 @@ def ad():
   file_name = request.form['video']
   seek_time_str = request.form['ss']
   layer_file = request.form['layer']
-  mask_file = None
+  mask_file = ''
   try:
     mask_file = request.form['mask']
   except Exception as err:
@@ -187,7 +187,7 @@ def ad():
     os.remove(os.path.join(dir_name, 'merged_end.mp4'))
   else: #起始帧插入
     #合成广告视频
-    if mask_file == None:
+    if mask_file == '':
       #ffmpeg -y -i end.mp4 -i ad_layer.mov -filter_complex 'overlay' merged_end.mp4
       merge_ad_command = [FFMPEG_BIN,
         '-y',
