@@ -145,7 +145,7 @@ def ad():
         '-i', os.path.join(dir_name, 'end.mp4'),
         '-i', layer_file,
         '-filter_complex',
-        'overlay',
+        'overlay=eof_action=pass',
         os.path.join(dir_name, 'merged_end.mp4')
       ]
     else:
@@ -155,7 +155,7 @@ def ad():
         '-i', layer_file,
         '-i', layer_file,
         '-i', os.path.join(dir_name, 'end.mp4'),
-        '-filter_complex', '[0:0][1:0]alphamerge[lm];[2:0][lm]overlay[lma]',
+        '-filter_complex', '[0:0][1:0]alphamerge[lm];[2:0][lm]overlay=eof_action=pass[lma]',
         '-map', '[lma]', '-c:v', 'h264',
         '-map', '[2:1]', '-c:a', 'copy',
         os.path.join(dir_name, 'merged_end.mp4')
@@ -196,7 +196,7 @@ def ad():
         '-i', file_name,
         '-i', layer_file,
         '-filter_complex',
-        'overlay',
+        'overlay=eof_action=pass',
         os.path.join(dir_name, 'result.mp4')
       ]
     else:
@@ -206,7 +206,7 @@ def ad():
         '-i', layer_file,
         '-i', mask_file,
         '-i', file_name,
-        '-filter_complex', '[0:0][1:0]alphamerge[lm];[2:0][lm]overlay[lma]',
+        '-filter_complex', '[0:0][1:0]alphamerge[lm];[2:0][lm]overlay=eof_action=pass[lma]',
         '-map', '[lma]', '-c:v', 'h264',
         os.path.join(dir_name, 'result.mp4')
       ]
