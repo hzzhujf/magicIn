@@ -105,14 +105,16 @@ def ad():
     mask_file = request.form['mask']
   except Exception as err:
     print('mask is empty')
-  dir_name = os.path.join('static/video', file_name.split('.')[0])
+  filepaths = file_name.split('/')
+  raw_file_name = filepaths[len(filepaths) - 1]
+  dir_name = os.path.join('static/video', raw_file_name.split('.')[0])
 
   if seek_time_str != '00:00:00.000': #中间帧插入
     #分割视频
     #ffmpeg -y -i no_cover.mp4 -t 00:00:00.480 -c:v h264 -c:a aac start.mp4
     divide_start_command = [FFMPEG_BIN,
       '-y',
-      '-i', os.path.join(dir_name, file_name),
+      '-i', file_name,
       '-t', seek_time_str,
       '-c:v', 'h264',
       '-c:a', 'aac',
@@ -125,7 +127,7 @@ def ad():
     divide_end_command = [FFMPEG_BIN,
       '-y',
       '-accurate_seek', '-ss', seek_time_str,
-      '-i', os.path.join(dir_name, file_name),
+      '-i', file_name,
       '-c:v', 'h264',
       '-c:a', 'aac',
       os.path.join(dir_name, 'end.mp4')]
@@ -189,7 +191,7 @@ def ad():
       #ffmpeg -y -i end.mp4 -i ad_layer.mov -filter_complex 'overlay' merged_end.mp4
       merge_ad_command = [FFMPEG_BIN,
         '-y',
-        '-i', os.path.join(dir_name, file_name),
+        '-i', file_name,
         '-i', layer_file,
         '-filter_complex',
         'overlay',
@@ -201,7 +203,7 @@ def ad():
         '-y',
         '-i', layer_file,
         '-i', mask_file,
-        '-i', os.path.join(dir_name, file_name),
+        '-i', file_name,
         '-filter_complex', '[0:0][1:0]alphamerge[lm];[2:0][lm]overlay[lma]',
         '-map', '[lma]', '-c:v', 'h264',
         os.path.join(dir_name, 'result.mp4')
