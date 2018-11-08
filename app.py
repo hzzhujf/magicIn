@@ -136,7 +136,7 @@ def ad():
       logging.error(dep.stderr.decode('utf8', 'ignore'))
       return 'error'
     #合成广告视频
-    if mask_file == None:
+    if mask_file == '':
       #ffmpeg -y -i end.mp4 -i ad_layer.mov -filter_complex 'overlay' merged_end.mp4
       merge_ad_command = [FFMPEG_BIN,
         '-y',
